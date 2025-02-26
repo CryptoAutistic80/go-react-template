@@ -4,7 +4,7 @@ test('home page tests', async ({ page }) => {
   await page.goto('/');
 
   // Check if the heading is visible
-  const heading = page.getByRole('heading', { name: 'Go React Template' });
+  const heading = page.getByRole('heading', { name: 'Welcome to AI Chat' });
   await expect(heading).toBeVisible();
 
   // Check page title

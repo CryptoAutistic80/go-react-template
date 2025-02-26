@@ -158,8 +158,11 @@ jobs:
       - name: Build frontend
         run: pnpm turbo build --filter=frontend
       
-      - name: Install Playwright browsers
-        run: pnpm --filter frontend-e2e playwright install --with-deps chromium
+      - name: Install Playwright and browsers
+        run: |
+          cd apps/frontend-e2e
+          pnpm exec playwright install
+          pnpm exec playwright install-deps chromium
       
       - name: Run Playwright tests
         env:

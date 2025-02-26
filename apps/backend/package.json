@@ -1,0 +1,10 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "go run main.go",
+    "build": "go build -o dist/server",
+    "start": "./dist/server"
+  }
+} 

@@ -20,6 +20,11 @@
     },
     "lint": {
       "outputs": []
+    },
+    "start": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
     }
   }
 } 

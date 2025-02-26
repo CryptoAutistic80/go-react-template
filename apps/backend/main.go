@@ -11,6 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sshiftdao/go-react-template/backend/handlers"
+	"github.com/sshiftdao/go-react-template/backend/services"
 	"go.uber.org/zap"
 )
 
@@ -27,8 +28,13 @@ func main() {
 	defer logger.Sync()
 
 	// Load environment variables
-	if err := godotenv.Load("../../.env"); err != nil {
+	if err := godotenv.Load(".env"); err != nil {
 		logger.Warn("Error loading .env file", zap.Error(err))
+	}
+
+	// Initialize OpenAI client
+	if err := services.InitOpenAI(); err != nil {
+		logger.Warn("Failed to initialize OpenAI client", zap.Error(err))
 	}
 
 	// Get port from environment variable or use default
@@ -40,6 +46,8 @@ func main() {
 	// Create router and register routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", handlers.HealthCheckHandler)
+	mux.HandleFunc("/api/chat", handlers.QueryHandler)
+	mux.HandleFunc("/api/chat/stream", handlers.StreamQueryHandler)
 
 	// Create server
 	server := &http.Server{
@@ -47,8 +55,10 @@ func main() {
 		Handler:      corsMiddleware(loggingMiddleware(mux)),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
 	}
+
+	// Channel to listen for errors coming from the listener.
+	serverErrors := make(chan error, 1)
 
 	// Start server in a goroutine
 	go func() {
@@ -58,21 +68,29 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	// Channel to listen for an interrupt or terminate signal from the OS.
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	// Graceful shutdown
-	logger.Info("Server is shutting down...")
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	// Blocking main and waiting for shutdown.
+	select {
+	case err := <-serverErrors:
+		logger.Error("Server error", zap.Error(err))
+	case sig := <-shutdown:
+		logger.Info("Start shutdown", zap.String("signal", sig.String()))
 
-	if err := server.Shutdown(ctx); err != nil {
-		logger.Fatal("Server forced to shutdown", zap.Error(err))
+		// Give outstanding requests a deadline for completion.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// Asking listener to shut down and shed load.
+		if err := server.Shutdown(ctx); err != nil {
+			logger.Error("Graceful shutdown did not complete", zap.Error(err))
+			if err := server.Close(); err != nil {
+				logger.Error("Could not stop server", zap.Error(err))
+			}
+		}
 	}
-
-	logger.Info("Server exited properly")
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -94,6 +112,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Max-Age", "3600")
 
 		// Handle preflight requests
 		if r.Method == "OPTIONS" {

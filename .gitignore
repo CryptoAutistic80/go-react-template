@@ -56,4 +56,8 @@ next-env.d.ts
 go.work
 
 # Turbo
-.turbo 
+.turbo
+
+# Documentation and references
+help-docs/
+@help-docs/ 

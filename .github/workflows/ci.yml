@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '20.x'
+  GO_VERSION: '1.21'
+  PNPM_VERSION: '8.x'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            **/node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+  frontend:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: Restore dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            **/node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Build frontend
+        run: pnpm turbo build --filter=frontend
+      
+      - name: Lint frontend
+        run: pnpm turbo lint --filter=frontend
+
+  backend:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: apps/backend/go.sum
+      
+      - name: Build backend
+        working-directory: apps/backend
+        run: go build -v ./...
+      
+      - name: Test backend
+        working-directory: apps/backend
+        run: go test -v ./...
+
+  e2e:
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: apps/backend/go.sum
+      
+      - name: Restore dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            **/node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Install Playwright browsers
+        run: pnpm --filter frontend-e2e playwright install --with-deps
+      
+      - name: Build frontend
+        run: pnpm turbo build --filter=frontend
+      
+      - name: Build and start backend
+        working-directory: apps/backend
+        run: |
+          go build -o dist/server
+          ./dist/server &
+          sleep 5  # Wait for backend to start
+      
+      - name: Run Playwright tests
+        run: pnpm turbo test --filter=frontend-e2e
+      
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: apps/frontend-e2e/playwright-report
+          retention-days: 30 

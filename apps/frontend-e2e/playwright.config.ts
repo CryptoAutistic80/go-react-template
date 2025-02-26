@@ -21,13 +21,15 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'pnpm dev --filter frontend',
+      command: process.env.CI 
+        ? 'cd ../frontend && pnpm build && pnpm start'
+        : 'pnpm dev --filter frontend',
       url: 'http://localhost:3000',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
     },
     {
-      command: 'cd ../backend && go run main.go',
+      command: 'cd ../backend && go build -o ./dist/server && ./dist/server',
       url: 'http://localhost:8080/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,

@@ -131,6 +131,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: apps/backend/go.sum
       
       - name: Get pnpm store directory
         shell: bash
@@ -149,21 +156,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       
       - name: Install Playwright browsers
-        run: pnpm --filter frontend-e2e playwright install --with-deps
-      
-      - name: Build frontend
-        run: pnpm turbo build --filter=frontend
-      
-      - name: Build and start backend
-        working-directory: apps/backend
-        run: |
-          go build -o dist/server
-          ./dist/server &
-          sleep 5  # Wait for backend to start
+        run: pnpm --filter frontend-e2e playwright install --with-deps chromium
       
       - name: Run Playwright tests
-        run: pnpm turbo test --filter=frontend-e2e
-      
+        run: cd apps/frontend-e2e && pnpm test
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4

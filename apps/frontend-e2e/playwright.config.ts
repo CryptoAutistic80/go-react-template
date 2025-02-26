@@ -19,10 +19,18 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'cd .. && cd .. && npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  webServer: [
+    {
+      command: 'pnpm dev --filter frontend',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+    },
+    {
+      command: 'cd ../backend && go run main.go',
+      url: 'http://localhost:8080/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+    },
+  ],
 }); 

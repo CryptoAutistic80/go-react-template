@@ -1,3 +1,6 @@
+# GitHub Actions workflow for Go React Template
+# Runs tests and builds for frontend, backend, and e2e tests
+
 name: CI
 
 on:

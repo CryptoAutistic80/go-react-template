@@ -75,13 +75,13 @@ importers:
   apps/frontend:
     dependencies:
       next:
-        specifier: '*'
+        specifier: 15.1.7
         version: 15.1.7(react-dom@19.0.0)(react@19.0.0)
       react:
-        specifier: '*'
+        specifier: ^19.0.0
         version: 19.0.0
       react-dom:
-        specifier: '*'
+        specifier: ^19.0.0
         version: 19.0.0(react@19.0.0)
 
   apps/frontend-e2e:
